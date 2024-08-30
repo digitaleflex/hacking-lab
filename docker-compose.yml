@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  kali:
+    image: kalilinux/kali-rolling
+    container_name: kali-lab
+    ports:
+      - "5901:5901"  # Port pour VNC
+      - "6901:6901"  # Port pour noVNC
+    volumes:
+      - ./data:/root/data  # Volume pour persister les données
+    environment:
+      - DISPLAY=:1
+      - VNC_PW=my_secure_password  # Mot de passe pour VNC
+    command: >
+      /bin/bash -c "
+      apt update &&
+      apt install -y kali-desktop-xfce tightvncserver novnc websockify &&
+      mkdir -p ~/.vnc &&
+      echo my_secure_password | vncpasswd -f > ~/.vnc/passwd &&
+      chmod 600 ~/.vnc/passwd &&
+      vncserver :1 -geometry 1920x1080 -depth 24 &&
+      websockify --web=/usr/share/novnc/ --wrap-mode=ignore 6901 localhost:5901
+      "
+
+  metasploitable:
+    image: tleemcjr/metasploitable2
+    container_name: metasploitable2
+    ports:
+      - "8888:80"  # Port pour DVWA
+      - "2222:22"  # Port SSH (facultatif)
+      - "21:21"    # Port FTP (facultatif)
+    networks:
+      pentest-net:
+        ipv4_address: 192.168.10.10
+
+  dvwa:
+    image: vulnerables/web-dvwa
+    container_name: dvwa
+    ports:
+      - "8080:80"  # Port pour accéder à DVWA
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    networks:
+      pentest-net:
+        ipv4_address: 192.168.10.11
+
+  windows:
+    image: accetto/ubuntu-vnc-xfce
+    container_name: windows-vm
+    ports:
+      - "5902:5901"  # Port pour accéder à Windows via VNC
+      - "6902:6901"  # Port pour noVNC
+    environment:
+      - DISPLAY=:1
+      - VNC_PW=my_secure_password2  # Mot de passe pour VNC Windows
+    command: >
+      /bin/bash -c "
+      apt update &&
+      apt install -y xfce4 xfce4-goodies tightvncserver novnc websockify &&
+      mkdir -p ~/.vnc &&
+      echo my_secure_password2 | vncpasswd -f > ~/.vnc/passwd &&
+      chmod 600 ~/.vnc/passwd &&
+      vncserver :1 -geometry 1920x1080 -depth 24 &&
+      websockify --web=/usr/share/novnc/ --wrap-mode=ignore 6901 localhost:5901
+      "
+    networks:
+      pentest-net:
+        ipv4_address: 192.168.10.12
+
+networks:
+  pentest-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.10.0/24
